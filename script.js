@@ -129,11 +129,11 @@ let precioConDescuento = document.getElementById("precioConDescuento");
             
             producto.innerText = 'Nombre del producto: ' + nombreProducto;
             costos.innerText = 'Costo del producto: $'+ Math.round(costoTotalA5);
-            precioPublico.innerText = 'Precio al público sugerido: $'+ Math.round(costoTotalA5 * 5);
-            ganancias.innerText = 'Ganancia del producto: $'+ Math.round(((costoTotalA5 * 5) - costoTotalA5));
+            precioPublico.innerText = 'Precio al público sugerido: $'+ Math.round(costoTotalA5 * 6);
+            ganancias.innerText = 'Ganancia del producto: $'+ Math.round(((costoTotalA5 * 6) - costoTotalA5));
 
             if (porcentajeDescuento != 0){
-                precioConDescuento.innerText = 'Precio con descuento del '+porcentajeDescuento+'%: $' + Math.round((costoTotalA5 * 5) * (1 - porcentajeDescuento / 100));
+                precioConDescuento.innerText = 'Precio con descuento del '+porcentajeDescuento+'%: $' + Math.round((costoTotalA5 * 6) * (1 - porcentajeDescuento / 100));
             }
 
             console.log(precioPapelStickerA5, precioEspiralMetalA5, precioEspiralPlasticoA5, precioPolipropilenoA5, precioHojaA5,precioHojaDuraA5, precioCartonDuroA5);
@@ -178,11 +178,11 @@ let precioConDescuento = document.getElementById("precioConDescuento");
             
             producto.innerText = 'Nombre del producto: ' + nombreProducto;
             costos.innerText = 'Costo del producto: $'+ Math.round(costoTotalA6);
-            precioPublico.innerText = 'Precio al público sugerido: $'+ Math.round(costoTotalA6 * 5);
-            ganancias.innerText = 'Ganancia del producto: $'+ Math.round(((costoTotalA6 * 5) - costoTotalA6));
+            precioPublico.innerText = 'Precio al público sugerido: $'+ Math.round(costoTotalA6 * 6);
+            ganancias.innerText = 'Ganancia del producto: $'+ Math.round(((costoTotalA6 * 6) - costoTotalA6));
 
             if (porcentajeDescuento != 0){
-                precioConDescuento.innerText = 'Precio con descuento del '+porcentajeDescuento+'%: $' + Math.round((costoTotalA6 * 5) * (1 - porcentajeDescuento / 100));
+                precioConDescuento.innerText = 'Precio con descuento del '+porcentajeDescuento+'%: $' + Math.round((costoTotalA6 * 6) * (1 - porcentajeDescuento / 100));
             }
 
             console.log(precioPapelStickerA6, precioEspiralMetalA6, precioEspiralPlasticoA6, precioPolipropilenoA6, precioHojaA6,precioHojaDuraA6, precioCartonDuroA6);
@@ -225,11 +225,11 @@ let precioConDescuento = document.getElementById("precioConDescuento");
             
             producto.innerText = 'Nombre del producto: ' + nombreProducto;
             costos.innerText = 'Costo del producto: $'+ Math.round(costoTotalA7);
-            precioPublico.innerText = 'Precio al público sugerido: $'+ Math.round(costoTotalA7 * 5);
-            ganancias.innerText = 'Ganancia del producto: $'+ Math.round(((costoTotalA7 * 5) - costoTotalA7));
+            precioPublico.innerText = 'Precio al público sugerido: $'+ Math.round(costoTotalA7 * 6);
+            ganancias.innerText = 'Ganancia del producto: $'+ Math.round(((costoTotalA7 * 6) - costoTotalA7));
 
             if (porcentajeDescuento != 0){
-                precioConDescuento.innerText = 'Precio con descuento del '+porcentajeDescuento+'%: $' + Math.round((costoTotalA7 * 5) * (1 - porcentajeDescuento / 100));
+                precioConDescuento.innerText = 'Precio con descuento del '+porcentajeDescuento+'%: $' + Math.round((costoTotalA7 * 6) * (1 - porcentajeDescuento / 100));
             }
 
             console.log(precioPapelStickerA7, precioEspiralMetalA7, precioEspiralPlasticoA7, precioPolipropilenoA7, precioHojaA7,precioHojaDuraA7, precioCartonDuroA7);
