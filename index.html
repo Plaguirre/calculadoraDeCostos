@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Costos</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header>
+        <h1 id="titulo">Calculadora de Costos</h1>
+    </header>
+    <main>
+        <h2 id="primerTexto">Bienvenido a la calculadora de costos.</h2>
+        <h3>La calculadora de costos le ayudará a calcular los costos de su proyecto y el precio final al público.</h3>
+        <p>Por favor, ingrese los datos necesarios para realizar el cálculo.</p>
+        <p class="aclaracion">Recuerde que la cantidad de materiales a ingresar es por cada uno de sus productos</p>
+        <div id="zonaInputs">
+            <form action="POST">
+            <div class="form-group">
+            <!-- Nombre del producto -->
+            <label for="nombreProducto">Nombre del producto: </label>
+            <input type="text" id="nombreProducto" placeholder="Ingrese el nombre del producto">
+        </div>
+            <br>
+        <div class="form-group">
+            <!-- tamano del producto A5 A6 A7 -->
+            <label for="tamanoProducto">Tamaño del producto</label>
+            <select id="tamanoProducto" required>
+                <option value="A5">A5</option>
+                <option value="A6">A6</option>
+                <option value="A7">A7</option>
+            </select>
+        </div>
+                <br>
+
+                <div class="form-group">
+            <!-- Cantidad de hojas que lleva -->
+            <label for="cantidadHojas">Cantidad de Hojas: </label>
+            <input type="number" id="cantidadHojas" placeholder="Ingrese la cantidad de hojas" min="0">
+        </div>
+
+                <br>
+
+        <div class="form-group">
+            <!-- Tiene anillado? Si tiene se habilita el select option para elegir el tipo de anillado -->
+            <label for="anillado">¿Tiene anillado?</label>
+            <input type="checkbox" id="anillado">
+            <label for="tipoAnillado" style="display:none;"></label>
+            <select id="tipoAnillado" style="display:none;">
+                <option value="plastico">Anillado plastico</option>
+                <option value="metal">Anillado metal</option>
+            </select>
+        </div>
+
+            <br>
+
+            <div class="form-gruop">
+            <!-- tipo de tapa del producto precio referencia A5 -->
+            <label for="tipoTapas">Tipo de tapa del producto: </label>
+            <select id="tipoTapas">
+                <option value="dura">Tapa dura</option>
+                <option value="blanda">Tapa blanda</option>
+            </select>
+            </div>
+
+            <br>
+
+            <div class="form-group">
+            <!-- Tiene polipropileno? -->
+            <label for="polipropileno">¿Tiene polipropileno?</label>
+            <input type="checkbox" id="polipropileno">
+            
+            <label for="cantidadPolipropileno" style="display:none;">Cantidad de hojas de polipropileno: </label>
+            <input type="number" id="cantidadPolipropileno" style="display:none;" placeholder="Ingrese cantidad de hojas de polipropileno" min="0">
+        </div>
+
+            <br>
+
+            <div class="form-group">
+            <!-- Tiene stickers? -->
+            <label for="stickers">¿Tiene stickers?</label>
+            <input type="checkbox" id="stickers">
+            <label for="cantidadStickers" style="display:none;">Cantidad de hojas de stickers: </label>
+            <input type="number" id="cantidadStickers" style="display:none;" placeholder="Ingrese cantidad de hojas de stickers" min="0">
+        </div>
+            <br>
+            <div class="form-group">
+            <!-- Ofrece descuentos? -->
+             <label for="descuento">¿Tiene descuento?</label>
+             <input type="checkbox" id="descuento">
+             <input type="number" id="porcentajeDescuento" style="display:none;" placeholder="Ingrese el porcentaje de descuento" min="0"> %
+            </div>
+        </form>
+    </div>
+    <p class="aclaracion">Los productos ya tienen incorporado un 15% más en concepto de otros gastos (electricidad, tinta, etc.)</p>
+    <div id="botones">
+    <button class="botonFinal" onclick="calcularCostos()"><i class="fa-solid fa-calculator"></i> Calcular costos y precio final</button>
+    <!-- <button class="botonFinal"><i class="fa-brands fa-whatsapp"></i> Enviarme el precio a whatsapp</button> -->
+    </div>
+        <div id="totalesFinales">
+            <p id="producto"></p>
+            <p id="costos"></p>
+            <p id="ganancias"></p>
+            <b><p id="precioPublico"></p></b>
+            <b><p id="precioConDescuento"></p></b>
+        </div>
+
+        <div id="toast" style="
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #333;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 9999;
+">
+    Copiado al portapapeles 📋
+</div>
+
+        <button class='botonFinal' id="copiarTotales"><i class="fa-solid fa-copy"></i> Copiar totales</button>
+    </main>
+    <footer>
+        <p>&copy; 2025 Calculadora de Costos</p>
+        <p>Desarrollado por Sigma Design</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
+
+<!-- Listado de datos para los costos:
+- Tamano del producto
+- Cantidad de hojas
+- Anillado
+- Tipo de tapa
+- Polipropileno
+- Stickers
+- descuento para precio final -->

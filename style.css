@@ -1,0 +1,93 @@
+/* Normalize body styles */
+body {
+    margin: 20px;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+    line-height: 1.2;
+    color: #ffffff;
+    background-color: #faaaec;
+}
+
+
+#titulo {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 2em;
+    text-shadow: #593c54 1px 1px 2px;
+}
+
+#primerTexto {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.aclaracion {
+    font-size: 0.9em;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+footer {
+    bottom: 0px;
+    line-height: 0.2;
+    width: 100%;
+    text-align: center;
+    margin-top: 30px;
+    font-size: 0.8em;
+    color: #333;
+    position: relative;
+    
+}
+
+#zonaInputs {
+    padding: 20px;
+    margin: 0 auto 20px auto;
+   
+}
+
+input[type="text"],
+input[type="number"] {
+    width: 250px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+select {
+    width: 200px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+option {
+    padding: 5px;
+}
+
+.botonFinal{
+    background-color: #b741a1;
+    color: #ffffff;
+    border: 2px solid #eea2e0;
+    border-radius: 5px;
+    font-size: 0.8em;
+    padding: 10px 20px;
+
+}
+
+#botones{
+    margin-left: 10%;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+    -moz-appearance: textfield;
+}
