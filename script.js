@@ -85,24 +85,25 @@ let precioConDescuento = document.getElementById("precioConDescuento");
 
 
     //Precio en tamanos A4
-    let precioPapelStickerA4 = 180;
+    let precioPapelStickerA4 = 200;
     let precioEspiralPlasticoA4 = 212;
-    let precioEspiralMetalA4 = 1000;
+    let precioEspiralMetalA4 = 950;
     let precioPolipropilenoA4 = 178;
-    let precioHojaA4 = 12.5;
-    let precioHojaDuraA4 = 92;
+    let precioHojaA4 = 14;
+    let precioHojaDuraA4 = 100;
+    let precioLaminador = 123
     
     //carton viene en A5
-    let precioCartonDuroA5 = 310;
+    let precioCartonDuroA5 = 240;
     switch(tamanoProducto){
         case 'A5':
             //seteo los precios para A5
-            let precioPapelStickerA5 = precioPapelStickerA4 / 2;
+            let precioPapelStickerA5 = precioPapelStickerA4;
             let precioEspiralPlasticoA5 = precioEspiralPlasticoA4 / 2;
-            let precioEspiralMetalA5 = precioEspiralMetalA4 / 2;
+            let precioEspiralMetalA5 = precioEspiralMetalA4 / 4;
             let precioPolipropilenoA5 = precioPolipropilenoA4 / 2; 
             let precioHojaA5 = precioHojaA4 / 2;
-            let precioHojaDuraA5 = precioHojaDuraA4 / 2;
+            let precioHojaDuraA5 = precioHojaDuraA4;
 
             let costoPapelStickerA5 = precioPapelStickerA5 * cantidadStickers;
             let costoEspiralA5;
@@ -121,10 +122,10 @@ let precioConDescuento = document.getElementById("precioConDescuento");
             if(tipoTapas == 'dura'){
                 costoTapaA5 = precioCartonDuroA5 * 2;
             }else if(tipoTapas == 'blanda'){
-                costoTapaA5 = precioHojaDuraA5 * 2;
+                costoTapaA5 = precioHojaDuraA5 * 3;
             }
 
-            let costoTotalA5 = Math.round((costoPapelStickerA5 + costoEspiralA5 + costoTapaA5 + costoPolipropilenoA5 + costoHojaA5)*1.15);
+            let costoTotalA5 = Math.round((costoPapelStickerA5 + costoEspiralA5 + costoTapaA5 + costoPolipropilenoA5 + costoHojaA5 + precioLaminador)*1.20);
         
             
             producto.innerText = 'Nombre del producto: ' + nombreProducto;
@@ -173,7 +174,7 @@ let precioConDescuento = document.getElementById("precioConDescuento");
                 costoTapaA6 = precioHojaDuraA6 * 2;
             }
 
-            let costoTotalA6 = Math.round((costoPapelStickerA6 + costoEspiralA6 + costoTapaA6 + costoPolipropilenoA6 + costoHojaA6)*1.15);
+            let costoTotalA6 = Math.round((costoPapelStickerA6 + costoEspiralA6 + costoTapaA6 + costoPolipropilenoA6 + costoHojaA6)*1.20);
         
             
             producto.innerText = 'Nombre del producto: ' + nombreProducto;
@@ -220,7 +221,7 @@ let precioConDescuento = document.getElementById("precioConDescuento");
                 costoTapaA7 = precioHojaDuraA7 * 2;
             }
 
-            let costoTotalA7 = Math.round((costoPapelStickerA7 + costoEspiralA7 + costoTapaA7 + costoPolipropilenoA7 + costoHojaA7)*1.15);
+            let costoTotalA7 = Math.round((costoPapelStickerA7 + costoEspiralA7 + costoTapaA7 + costoPolipropilenoA7 + costoHojaA7)*1.20);
         
             
             producto.innerText = 'Nombre del producto: ' + nombreProducto;
