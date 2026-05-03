@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calculadora de Costos — Sigma Design</title>
+  <meta name="description" content="Calculadora de costos para productos de encuadernación y librería" />
+  <link rel="icon" type="image/png" href="/sources/images/icono.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" crossorigin="anonymous">
+</head>
+<body>
+  <script src="/js/auth.js"></script>
+
+  <header>
+    <h1 id="titulo">Calculadora de Costos</h1>
+    <nav>
+      <span id="greeting" class="greeting" hidden></span>
+      <a id="loginLink" href="/login.html">Ingresar</a>
+      <a id="registerLink" href="/register.html">Registrarse</a>
+      <button id="logoutBtn" hidden>Cerrar sesión</button>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- ── Panel: Materiales / Insumos ─────────────────────────────── -->
+    <section class="panel" id="materialsSection">
+      <h2><i class="fa-solid fa-box-open"></i> Registrar material / insumo</h2>
+      <p class="aclaracion">Registrá tus materiales con su costo total y cantidad para calcular el precio por unidad.</p>
+
+      <form id="materialForm" class="form-inline" novalidate>
+        <div class="form-row">
+          <label for="matName">Nombre</label>
+          <input id="matName" type="text" placeholder="Ej: Hojas A5" maxlength="200" required />
+        </div>
+        <div class="form-row">
+          <label for="matTotalCost">Costo total (ARS)</label>
+          <input id="matTotalCost" type="number" min="0.01" step="0.01" placeholder="1000" required />
+        </div>
+        <div class="form-row">
+          <label for="matQty">Cantidad en el pack</label>
+          <input id="matQty" type="number" min="1" step="1" placeholder="100" required />
+        </div>
+        <div class="form-row">
+          <label>Precio unitario</label>
+          <span id="matUnitPrice" class="muted">-</span>
+        </div>
+        <div class="form-row" style="justify-content:flex-end">
+          <button id="addMatBtn" class="botonFinal" type="submit">
+            <i class="fa-solid fa-plus"></i> Agregar
+          </button>
+        </div>
+      </form>
+
+      <h3>Ítems registrados</h3>
+      <div class="table-wrapper">
+        <table id="materialsTable" class="table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Costo total</th>
+              <th>Cantidad</th>
+              <th>Precio unitario</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Panel: Calculadora ──────────────────────────────────────── -->
+    <section class="panel" id="calculatorSection">
+      <h2><i class="fa-solid fa-calculator"></i> Calculadora de producto final</h2>
+      <p class="aclaracion">Completá los datos del producto. Los insumos registrados arriba se pueden incluir directamente en el cálculo.</p>
+
+      <form id="calcForm" novalidate>
+
+        <div class="form-group">
+          <label for="nombreProducto">Nombre del producto</label>
+          <input type="text" id="nombreProducto" placeholder="Ej: Agenda semanal A5" maxlength="100">
+        </div>
+
+        <div class="form-group">
+          <label for="tamanoProducto">Tamaño</label>
+          <select id="tamanoProducto">
+            <option value="A5">A5</option>
+            <option value="A6">A6</option>
+            <option value="A7">A7</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="cantidadHojas">Cantidad de hojas internas</label>
+          <input type="number" id="cantidadHojas" min="0" step="1" value="1">
+        </div>
+
+        <div class="form-group form-group--inline">
+          <label for="tipoTapas">Tipo de tapa</label>
+          <select id="tipoTapas">
+            <option value="blanda">Tapa blanda</option>
+            <option value="dura">Tapa dura</option>
+          </select>
+        </div>
+
+        <div class="form-group form-group--inline">
+          <input type="checkbox" id="anillado">
+          <label for="anillado">¿Tiene anillado / espiralado?</label>
+          <select id="tipoAnillado" hidden>
+            <option value="plastico">Anillado plástico</option>
+            <option value="metal">Anillado metal</option>
+          </select>
+        </div>
+
+        <div class="form-group form-group--inline">
+          <input type="checkbox" id="polipropileno">
+          <label for="polipropileno">¿Lleva hojas de polipropileno?</label>
+          <input type="number" id="cantidadPolipropileno" hidden min="1" step="1" placeholder="Cantidad" value="0">
+        </div>
+
+        <div class="form-group form-group--inline">
+          <input type="checkbox" id="stickers">
+          <label for="stickers">¿Lleva hojas adhesivo fotográfico?</label>
+          <input type="number" id="cantidadStickers" hidden min="1" step="1" placeholder="Cantidad" value="0">
+        </div>
+
+        <!-- Insumos del panel de materiales -->
+        <fieldset class="fieldset-insumos">
+          <legend>Insumos registrados (opcional)</legend>
+          <div id="matInsumos">
+            <p class="muted" style="font-size:.85rem">Agregá materiales en el panel de arriba para usarlos aquí.</p>
+          </div>
+        </fieldset>
+
+        <div class="form-group form-group--inline">
+          <input type="checkbox" id="descuento">
+          <label for="descuento">¿Aplicar descuento?</label>
+          <input type="number" id="porcentajeDescuento" hidden min="0" max="100" step="0.5" placeholder="%" value="0">
+          <span id="pctLabel" hidden>%</span>
+        </div>
+
+      </form>
+
+      <p class="aclaracion" style="margin-top:16px">
+        <i class="fa-solid fa-circle-info"></i>
+        Los costos ya incluyen un 15% adicional por otros gastos (electricidad, tinta, etc.) y un 30% de ganancia.
+      </p>
+
+      <div id="botones">
+        <button class="botonFinal" id="calcBtn">
+          <i class="fa-solid fa-calculator"></i> Calcular precio final
+        </button>
+      </div>
+
+      <div id="totalesFinales" class="totales-box" hidden>
+        <p id="producto"></p>
+        <p id="costos"></p>
+        <p id="ganancias"></p>
+        <p id="precioPublico" class="precio-highlight"></p>
+        <p id="precioConDescuento" class="precio-descuento"></p>
+      </div>
+
+      <div id="toast" class="toast">Copiado al portapapeles 📋</div>
+      <button class="botonFinal" id="copiarTotales" style="margin-top:8px">
+        <i class="fa-solid fa-copy"></i> Copiar resultado
+      </button>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Calculadora de Costos — Sigma Design</p>
+  </footer>
+
+  <script src="/js/script.js"></script>
+  <script>
+    // Mostrar resultado al calcular
+    document.getElementById('calcBtn')?.addEventListener('click', () => {
+      const box = document.getElementById('totalesFinales');
+      if (box) box.hidden = false;
+    });
+  </script>
+</body>
+</html>
