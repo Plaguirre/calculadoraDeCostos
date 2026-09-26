@@ -11,13 +11,20 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/test/**/*.test.js"],
-    "testTimeout": 30000
+    "testMatch": [
+      "<rootDir>/test/**/*.test.js"
+    ],
+    "testTimeout": 30000,
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/node-mongo-app/"
+    ]
   },
   "author": "Sigma Design",
   "license": "MIT",
   "dependencies": {
-    "bcrypt": "^5.1.0",
+    "bcrypt": "^5.1.1",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
@@ -26,12 +33,17 @@
     "express-validator": "^7.0.1",
     "helmet": "^6.0.1",
     "jsonwebtoken": "^9.0.0",
-    "mongoose": "^7.0.0"
+    "mongoose": "^7.0.0",
+    "multer": "^2.4.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "jest": "^29.0.0",
+    "mongodb-memory-server": "^9.0.0",
     "nodemon": "^2.0.22",
-    "supertest": "^6.3.0",
-    "mongodb-memory-server": "^9.0.0"
+    "supertest": "^6.3.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -1,0 +1,24 @@
+# Blueprint de Render (plan gratuito).
+# En Render: New → Blueprint → elegir este repositorio.
+# Solo hay que completar MONGODB_URI (la cadena de conexión de MongoDB Atlas).
+services:
+  - type: web
+    name: calculadora-de-costos
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /login.html
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false            # se pide al crear el servicio
+      - key: ACCESS_TOKEN_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: IMAGE_STORAGE
+        value: gridfs          # el disco del plan gratuito se borra en cada reinicio
+      - key: TRUST_PROXY
+        value: "1"

@@ -6,3 +6,6 @@
 backups/
 sources/
 .DS_Store
+
+# Imágenes de productos
+uploads/

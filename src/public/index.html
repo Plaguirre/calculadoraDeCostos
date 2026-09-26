@@ -4,182 +4,197 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Calculadora de Costos — Sigma Design</title>
-  <meta name="description" content="Calculadora de costos para productos de encuadernación y librería" />
   <link rel="icon" type="image/png" href="/sources/images/icono.png">
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script defer src="/js/common.js"></script>
+  <script defer src="/js/auth.js"></script>
+  <script defer src="/shared/pricing.js"></script>
+  <script defer src="/js/script.js"></script>
 </head>
 <body>
-  <script src="/js/auth.js"></script>
-
   <header>
-    <h1 id="titulo">Calculadora de Costos</h1>
-    <nav>
+    <a href="/" id="titulo">Calculadora de Costos</a>
+    <nav aria-label="Principal">
       <span id="greeting" class="greeting" hidden></span>
-      <a id="loginLink" href="/login.html">Ingresar</a>
-      <a id="registerLink" href="/register.html">Registrarse</a>
-      <button id="logoutBtn" hidden>Cerrar sesión</button>
+      <a href="/" class="active" aria-current="page"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Calcular</a>
+      <a href="/insumos.html"><i class="fa-solid fa-box-open" aria-hidden="true"></i> Insumos</a>
+      <a href="/productos.html"><i class="fa-solid fa-store" aria-hidden="true"></i> Catálogo</a>
+      <a id="loginLink" href="/login.html"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Ingresar</a>
+      <a id="registerLink" href="/register.html"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Registrarse</a>
+      <button id="logoutBtn" class="nav-btn" hidden><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Salir</button>
     </nav>
   </header>
 
-  <main>
+  <main class="main--wide">
+    <div id="editBanner" class="banner" hidden>
+      <i class="fa-solid fa-pen" aria-hidden="true"></i>
+      <span>Editando <strong id="editBannerName"></strong>. Al guardar se actualiza su precio en el catálogo.</span>
+      <a href="/productos.html" class="btn btn--ghost btn--sm">Cancelar</a>
+    </div>
 
-    <!-- ── Panel: Materiales / Insumos ─────────────────────────────── -->
-    <section class="panel" id="materialsSection">
-      <h2><i class="fa-solid fa-box-open"></i> Registrar material / insumo</h2>
-      <p class="aclaracion">Registrá tus materiales con su costo total y cantidad para calcular el precio por unidad.</p>
-
-      <form id="materialForm" class="form-inline" novalidate>
-        <div class="form-row">
-          <label for="matName">Nombre</label>
-          <input id="matName" type="text" placeholder="Ej: Hojas A5" maxlength="200" required />
-        </div>
-        <div class="form-row">
-          <label for="matTotalCost">Costo total (ARS)</label>
-          <input id="matTotalCost" type="number" min="0.01" step="0.01" placeholder="1000" required />
-        </div>
-        <div class="form-row">
-          <label for="matQty">Cantidad en el pack</label>
-          <input id="matQty" type="number" min="1" step="1" placeholder="100" required />
-        </div>
-        <div class="form-row">
-          <label>Precio unitario</label>
-          <span id="matUnitPrice" class="muted">-</span>
-        </div>
-        <div class="form-row" style="justify-content:flex-end">
-          <button id="addMatBtn" class="botonFinal" type="submit">
-            <i class="fa-solid fa-plus"></i> Agregar
-          </button>
-        </div>
-      </form>
-
-      <h3>Ítems registrados</h3>
-      <div class="table-wrapper">
-        <table id="materialsTable" class="table">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Costo total</th>
-              <th>Cantidad</th>
-              <th>Precio unitario</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ── Panel: Calculadora ──────────────────────────────────────── -->
-    <section class="panel" id="calculatorSection">
-      <h2><i class="fa-solid fa-calculator"></i> Calculadora de producto final</h2>
-      <p class="aclaracion">Completá los datos del producto. Los insumos registrados arriba se pueden incluir directamente en el cálculo.</p>
-
-      <form id="calcForm" novalidate>
+    <div class="calc-layout">
+      <!-- ── Columna izquierda: armado del producto ─────────────────────── -->
+      <section class="panel">
+        <h2><i class="fa-solid fa-calculator" aria-hidden="true"></i> Calculá el precio de tu producto</h2>
 
         <div class="form-group">
-          <label for="nombreProducto">Nombre del producto</label>
-          <input type="text" id="nombreProducto" placeholder="Ej: Agenda semanal A5" maxlength="100">
+          <label for="nombreProducto"><span class="step">1</span> Nombre del producto</label>
+          <input type="text" id="nombreProducto" maxlength="200"
+            placeholder="Ej: Torta de chocolate, Agenda A5, Vela aromática…">
         </div>
 
         <div class="form-group">
-          <label for="tamanoProducto">Tamaño</label>
-          <select id="tamanoProducto">
-            <option value="A5">A5</option>
-            <option value="A6">A6</option>
-            <option value="A7">A7</option>
-          </select>
+          <div class="label-row">
+            <label for="buscarInsumo"><span class="step">2</span> Elegí los insumos que usa</label>
+            <a href="/insumos.html" class="link-sm">Gestionar insumos →</a>
+          </div>
+          <div class="search-wrapper">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="buscarInsumo" placeholder="Buscar insumo…" autocomplete="off">
+          </div>
+          <div class="insumos-scroll" id="insumosScroll" role="list">
+            <div class="empty-msg" id="insumosEmpty">
+              <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Cargando insumos…
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="cantidadHojas">Cantidad de hojas internas</label>
-          <input type="number" id="cantidadHojas" min="0" step="1" value="1">
+        <div id="seleccionWrapper" class="form-group" hidden>
+          <label><span class="step">3</span> Cantidad de cada insumo por producto</label>
+          <div class="seleccion-lista" id="seleccionLista"></div>
         </div>
 
-        <div class="form-group form-group--inline">
-          <label for="tipoTapas">Tipo de tapa</label>
-          <select id="tipoTapas">
-            <option value="blanda">Tapa blanda</option>
-            <option value="dura">Tapa dura</option>
-          </select>
-        </div>
-
-        <div class="form-group form-group--inline">
-          <input type="checkbox" id="anillado">
-          <label for="anillado">¿Tiene anillado / espiralado?</label>
-          <select id="tipoAnillado" hidden>
-            <option value="plastico">Anillado plástico</option>
-            <option value="metal">Anillado metal</option>
-          </select>
-        </div>
-
-        <div class="form-group form-group--inline">
-          <input type="checkbox" id="polipropileno">
-          <label for="polipropileno">¿Lleva hojas de polipropileno?</label>
-          <input type="number" id="cantidadPolipropileno" hidden min="1" step="1" placeholder="Cantidad" value="0">
-        </div>
-
-        <div class="form-group form-group--inline">
-          <input type="checkbox" id="stickers">
-          <label for="stickers">¿Lleva hojas adhesivo fotográfico?</label>
-          <input type="number" id="cantidadStickers" hidden min="1" step="1" placeholder="Cantidad" value="0">
-        </div>
-
-        <!-- Insumos del panel de materiales -->
-        <fieldset class="fieldset-insumos">
-          <legend>Insumos registrados (opcional)</legend>
-          <div id="matInsumos">
-            <p class="muted" style="font-size:.85rem">Agregá materiales en el panel de arriba para usarlos aquí.</p>
+        <fieldset class="config">
+          <legend><span class="step">4</span> Gastos y ganancia</legend>
+          <div class="config-row">
+            <div class="form-group">
+              <label for="otrosGastos">Otros gastos</label>
+              <div class="input-suffix">
+                <input type="number" id="otrosGastos" min="0" step="0.5" value="15" max="1000" inputmode="decimal">
+                <span class="suffix">%</span>
+              </div>
+              <span class="hint">Luz, gas, transporte, packaging…</span>
+            </div>
+            <div class="form-group">
+              <label for="margenGanancia">Margen de ganancia</label>
+              <div class="input-suffix">
+                <input type="number" id="margenGanancia" min="0" step="0.5" value="30" max="10000" inputmode="decimal">
+                <span class="suffix">%</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="redondeo">Redondear precio</label>
+              <select id="redondeo">
+                <option value="0">Sin redondeo</option>
+                <option value="10">A $10</option>
+                <option value="50">A $50</option>
+                <option value="100" selected>A $100</option>
+                <option value="500">A $500</option>
+                <option value="1000">A $1.000</option>
+              </select>
+              <span class="hint">Siempre hacia arriba, para no perder margen.</span>
+            </div>
+            <div class="form-group">
+              <label for="porcentajeDescuento">Precio promocional</label>
+              <div class="inline-check">
+                <input type="checkbox" id="descuento" aria-label="Aplicar descuento">
+                <div class="input-suffix">
+                  <input type="number" id="porcentajeDescuento" min="0" max="100" step="0.5" value="10" disabled inputmode="decimal">
+                  <span class="suffix">% off</span>
+                </div>
+              </div>
+            </div>
           </div>
         </fieldset>
+      </section>
 
-        <div class="form-group form-group--inline">
-          <input type="checkbox" id="descuento">
-          <label for="descuento">¿Aplicar descuento?</label>
-          <input type="number" id="porcentajeDescuento" hidden min="0" max="100" step="0.5" placeholder="%" value="0">
-          <span id="pctLabel" hidden>%</span>
+      <!-- ── Columna derecha: resultado en vivo ──────────────────────────── -->
+      <aside class="panel calc-summary" aria-live="polite">
+        <h2><i class="fa-solid fa-receipt" aria-hidden="true"></i> Resultado</h2>
+
+        <div id="resultadoVacio" class="empty-state">
+          <i class="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+          <p>Agregá insumos y el precio se calcula al instante.</p>
         </div>
 
-      </form>
+        <div id="resultado" hidden>
+          <div class="precio-hero">
+            <span class="precio-hero-label">Precio de venta</span>
+            <span id="resPrecioVenta" class="precio-hero-val">-</span>
+            <span id="resPrecioPromo" class="precio-hero-promo" hidden></span>
+          </div>
 
-      <p class="aclaracion" style="margin-top:16px">
-        <i class="fa-solid fa-circle-info"></i>
-        Los costos ya incluyen un 15% adicional por otros gastos (electricidad, tinta, etc.) y un 30% de ganancia.
-      </p>
+          <div class="res-desglose">
+            <div class="res-row"><span>Costo de insumos</span><span id="resCostoInsumos" class="res-val">-</span></div>
+            <div class="res-row" id="rowOtrosGastos"><span id="labelOtrosGastos">Otros gastos</span><span id="resOtrosGastos" class="res-val">-</span></div>
+            <div class="res-row res-row--subtotal"><span>Costo total</span><span id="resCostoTotal" class="res-val">-</span></div>
+            <div class="res-row"><span id="labelGanancia">Ganancia</span><span id="resGanancia" class="res-val res-val--ok">-</span></div>
+          </div>
+          <details class="res-detalle">
+            <summary>Ver detalle de insumos</summary>
+            <div id="detalleInsumos"></div>
+          </details>
 
-      <div id="botones">
-        <button class="botonFinal" id="calcBtn">
-          <i class="fa-solid fa-calculator"></i> Calcular precio final
-        </button>
-      </div>
+          <!-- Datos para el catálogo (solo con sesión y al crear) -->
+          <div id="catalogoBlock" class="catalogo-block" hidden>
+            <h3><i class="fa-solid fa-store" aria-hidden="true"></i> Para tu catálogo <span class="optional">(opcional)</span></h3>
 
-      <div id="totalesFinales" class="totales-box" hidden>
-        <p id="producto"></p>
-        <p id="costos"></p>
-        <p id="ganancias"></p>
-        <p id="precioPublico" class="precio-highlight"></p>
-        <p id="precioConDescuento" class="precio-descuento"></p>
-      </div>
+            <label class="dropzone" id="dropzone" for="fotosInput">
+              <input type="file" id="fotosInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+              <i class="fa-solid fa-camera" aria-hidden="true"></i>
+              <span><strong>Agregá fotos</strong> o arrastralas acá</span>
+              <span class="hint">JPG, PNG o WebP · hasta 8 fotos · la primera es la portada</span>
+            </label>
+            <div class="fotos-preview" id="fotosPreview"></div>
 
-      <div id="toast" class="toast">Copiado al portapapeles 📋</div>
-      <button class="botonFinal" id="copiarTotales" style="margin-top:8px">
-        <i class="fa-solid fa-copy"></i> Copiar resultado
-      </button>
-    </section>
+            <div class="form-group">
+              <label for="categoria">Categoría</label>
+              <input type="text" id="categoria" list="categoriasList" maxlength="100" placeholder="Ej: Tortas, Velas, Agendas">
+              <datalist id="categoriasList"></datalist>
+            </div>
+            <div class="form-group">
+              <label for="descripcion">Descripción</label>
+              <textarea id="descripcion" maxlength="5000" rows="3" placeholder="Lo que verá tu cliente: tamaño, materiales, sabores…"></textarea>
+            </div>
+          </div>
 
+          <div id="loginPrompt" class="login-prompt" hidden>
+            <p><i class="fa-solid fa-lock" aria-hidden="true"></i> Creá una cuenta gratis para guardar este producto en tu catálogo. No vas a perder lo que calculaste.</p>
+            <button type="button" class="btn btn--primary btn--full" id="loginToSaveBtn">Ingresar y guardar</button>
+          </div>
+
+          <div class="calc-actions">
+            <button class="btn btn--primary btn--lg btn--full" id="guardarBtn" hidden>
+              <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> <span>Guardar en catálogo</span>
+            </button>
+            <button class="btn btn--secondary" id="copiarBtn">
+              <i class="fa-solid fa-copy" aria-hidden="true"></i> Copiar
+            </button>
+            <button class="btn btn--ghost" id="limpiarBtn">
+              <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Empezar de nuevo
+            </button>
+          </div>
+        </div>
+
+        <div id="guardadoOk" class="success-state" hidden>
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+          <p><strong id="guardadoNombre"></strong> ya está en tu catálogo.</p>
+          <div class="calc-actions">
+            <a href="/productos.html" class="btn btn--primary" id="verCatalogoBtn"><i class="fa-solid fa-store" aria-hidden="true"></i> Ver catálogo</a>
+            <button class="btn btn--ghost" id="otroBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i> Calcular otro</button>
+          </div>
+        </div>
+      </aside>
+    </div>
   </main>
 
-  <footer>
-    <p>&copy; 2025 Calculadora de Costos — Sigma Design</p>
-  </footer>
+  <button type="button" class="price-bar" id="priceBar" hidden>
+    <span>Precio de venta <strong id="priceBarVal"></strong></span>
+    <span>Ver resultado <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></span>
+  </button>
 
-  <script src="/js/script.js"></script>
-  <script>
-    // Mostrar resultado al calcular
-    document.getElementById('calcBtn')?.addEventListener('click', () => {
-      const box = document.getElementById('totalesFinales');
-      if (box) box.hidden = false;
-    });
-  </script>
+  <footer><p>&copy; <span data-year>2025</span> Calculadora de Costos — Sigma Design</p></footer>
+  <div id="toast" class="toast" role="status"></div>
 </body>
 </html>

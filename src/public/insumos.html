@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Insumos — Sigma Design</title>
+  <link rel="icon" type="image/png" href="/sources/images/icono.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script defer src="/js/common.js"></script>
+  <script defer src="/js/auth.js"></script>
+  <script defer src="/js/insumos.js"></script>
+</head>
+<body>
+  <header>
+    <a href="/" id="titulo">Calculadora de Costos</a>
+    <nav>
+      <span id="greeting" class="greeting" hidden></span>
+      <a href="/"><i class="fa-solid fa-calculator"></i> Calcular</a>
+      <a href="/insumos.html" class="active" aria-current="page"><i class="fa-solid fa-box-open"></i> Insumos</a>
+      <a href="/productos.html"><i class="fa-solid fa-store"></i> Catálogo</a>
+      <a id="loginLink" href="/login.html"><i class="fa-solid fa-right-to-bracket"></i> Ingresar</a>
+      <a id="registerLink" href="/register.html"><i class="fa-solid fa-user-plus"></i> Registrarse</a>
+      <button id="logoutBtn" class="nav-btn" hidden><i class="fa-solid fa-right-from-bracket"></i> Salir</button>
+    </nav>
+  </header>
+
+  <main>
+    <div class="page-hero">
+      <h1><i class="fa-solid fa-box-open" aria-hidden="true"></i> Mis insumos</h1>
+      <p>Cargá cada materia prima como la comprás (precio del pack y unidades) y calculamos el costo por unidad.</p>
+      <p id="avisoLocal" class="banner banner--info" hidden>
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        <span>Estos insumos se guardan solo en este navegador. <a href="/register.html">Creá una cuenta</a> para no perderlos y armar tu catálogo.</span>
+      </p>
+    </div>
+
+    <section class="panel">
+      <h2><i class="fa-solid fa-plus-circle"></i> Agregar insumo</h2>
+
+      <form id="materialForm" class="form-inline" novalidate>
+        <div class="form-row">
+          <label for="matName">Nombre</label>
+          <input id="matName" type="text" placeholder="Ej: Harina, Hojas A4, Cinta…" maxlength="200" required />
+        </div>
+        <div class="form-row">
+          <label for="matTotalCost">Costo del pack (ARS)</label>
+          <input id="matTotalCost" type="number" min="0.01" step="0.01" placeholder="1500" required />
+        </div>
+        <div class="form-row">
+          <label for="matQty">Unidades en el pack</label>
+          <input id="matQty" type="number" min="1" step="1" placeholder="500" required />
+        </div>
+        <div class="form-row">
+          <label>Costo por unidad</label>
+          <span id="matUnitPrice" class="unit-preview">-</span>
+        </div>
+        <div class="form-row form-row--end">
+          <button id="addMatBtn" class="btn btn--primary" type="submit">
+            <i class="fa-solid fa-plus"></i> Agregar
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="section-header">
+        <h2><i class="fa-solid fa-table-list"></i> Listado de insumos</h2>
+        <span id="contadorInsumos" style="font-size:.82rem;color:var(--text-muted)"></span>
+      </div>
+
+      <div class="search-wrapper">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="filtroTabla" placeholder="Filtrar insumos…" aria-label="Filtrar insumos">
+      </div>
+
+      <div class="table-wrapper">
+        <table id="materialsTable" class="table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Costo pack</th>
+              <th>Unidades</th>
+              <th>Costo/u</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" class="empty-msg">
+              <i class="fa-solid fa-spinner fa-spin"></i> Cargando…
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer><p>&copy; <span data-year>2025</span> Calculadora de Costos — Sigma Design</p></footer>
+
+  <!-- Modal edición -->
+  <div class="modal-overlay" id="editModal" aria-hidden="true">
+    <form class="modal-box" id="editForm" role="dialog" aria-modal="true" aria-labelledby="editTitulo" novalidate>
+      <button type="button" class="modal-close" id="editClose" aria-label="Cerrar">✕</button>
+      <h2 class="modal-titulo" id="editTitulo"><i class="fa-solid fa-pen" aria-hidden="true"></i> Editar insumo</h2>
+      <div class="form-group">
+        <label for="editName">Nombre</label>
+        <input id="editName" type="text" maxlength="200" />
+      </div>
+      <div class="form-group">
+        <label for="editCost">Costo del pack (ARS)</label>
+        <input id="editCost" type="number" min="0.01" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label for="editQty">Unidades en el pack</label>
+        <input id="editQty" type="number" min="1" step="1" />
+      </div>
+      <div class="form-group">
+        <label>Nuevo costo por unidad</label>
+        <span class="hint">Los productos del catálogo que lo usan se recalculan solos.</span>
+        <span id="editPreview" class="unit-preview">-</span>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="editCancel" class="btn btn--ghost">Cancelar</button>
+        <button type="submit" id="editSave" class="btn btn--primary">
+          <i class="fa-solid fa-floppy-disk"></i> Guardar cambios
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</body>
+</html>

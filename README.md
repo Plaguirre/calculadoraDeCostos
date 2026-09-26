@@ -37,6 +37,10 @@ npm test
 | `ACCESS_TOKEN_SECRET` | Secreto para access tokens JWT           | —                                          |
 | `REFRESH_TOKEN_SECRET`| Secreto para refresh tokens JWT          | —                                          |
 | `FRONTEND_URL`        | Origen permitido por CORS                | `http://localhost:3000`                    |
+| `PUBLIC_BASE_URL`     | URL pública del servidor. Se usa para los links absolutos a las fotos en las exportaciones (Tienda Nube / Meta necesitan poder descargarlas) | URL del request |
+| `CATALOG_CURRENCY`    | Moneda de los feeds de catálogo          | `ARS`                                      |
+| `UPLOAD_DIR`          | Carpeta de imágenes de productos         | `./uploads`                                |
+| `TRUST_PROXY`         | Activar detrás de un proxy (Render, Nginx…) | —                                       |
 
 ## Endpoints API
 
@@ -58,21 +62,47 @@ npm test
 | DELETE | `/api/materials/:id`    | Sí   | Eliminar material            |
 | POST   | `/api/materials/merge`  | Sí   | Fusionar materiales locales  |
 
+Actualizar un material recalcula en cascada el precio de todos los productos que lo usan.
+
+### Productos / catálogo
+El servidor recalcula siempre los precios a partir de los insumos (no confía en totales enviados por el cliente).
+La fórmula vive en `src/shared/pricing.js` y la usan tanto el backend como el frontend (`/shared/pricing.js`).
+
+| Método | Ruta                                        | Descripción                                      |
+|--------|---------------------------------------------|--------------------------------------------------|
+| GET    | `/api/products`                             | Listar productos del catálogo                    |
+| POST   | `/api/products`                             | Crear producto (costeo + datos de catálogo)      |
+| GET    | `/api/products/:id`                         | Obtener un producto                              |
+| PUT    | `/api/products/:id`                         | Recalcular costeo (insumos, %, redondeo)         |
+| PATCH  | `/api/products/:id`                         | Datos de catálogo (descripción, categoría, stock, SKU, visibilidad, medidas…) |
+| DELETE | `/api/products/:id`                         | Eliminar producto y sus fotos                    |
+| POST   | `/api/products/:id/images`                  | Subir fotos (multipart, campo `images`, máx. 8 × 8 MB) |
+| PATCH  | `/api/products/:id/images/:imageId/cover`   | Usar la foto como portada                        |
+| DELETE | `/api/products/:id/images/:imageId`         | Eliminar foto                                    |
+| GET    | `/api/products/export?format=…`             | Exportar catálogo (`onlyPublished=true` opcional) |
+
+Formatos de exportación: `tiendanube` (planilla CSV de importación), `meta` (feed CSV para Instagram/Facebook y Google Merchant; acepta `storeUrl`), `json` (catálogo normalizado) y `tiendanube-api` (payloads listos para `POST /products` de la API de Tienda Nube).
+
+Las fotos se procesan con sharp: se corrige la orientación, se eliminan metadatos (GPS), se genera una principal JPEG de hasta 1600 px (formato aceptado por todas las plataformas) y una miniatura WebP. El almacenamiento está aislado en `src/services/imageStorage.js` para poder migrarlo a S3/Cloudinary.
+
 ## Arquitectura
 
 ```
 src/
 ├── config/         → Conexión a MongoDB
-├── controllers/    → Lógica de negocio (auth, materiales)
+├── controllers/    → Lógica de negocio (auth, materiales, productos)
 ├── middlewares/    → Auth JWT, error handler centralizado
-├── models/         → Schemas Mongoose (User, Material)
+├── models/         → Schemas Mongoose (User, Material, Product)
 ├── routes/         → Express routers
-├── utils/          → Logger
+├── services/       → Almacenamiento de imágenes, exportadores de catálogo
+├── shared/         → Fórmula de precios (backend + frontend)
+├── utils/          → Logger, slugs
 ├── validators/     → Reglas express-validator
 └── public/         → Frontend estático (HTML/CSS/JS vanilla)
 test/
 ├── auth.test.js      → Tests de integración: auth
-└── materials.test.js → Tests de integración: materiales
+├── materials.test.js → Tests de integración: materiales
+└── products.test.js  → Tests de integración: catálogo, fotos, exportación
 ```
 
 ## Instalar devDependencies para tests

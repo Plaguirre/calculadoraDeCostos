@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Catálogo — Calculadora de Costos</title>
+  <link rel="icon" type="image/png" href="/sources/images/icono.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script defer src="/js/common.js"></script>
+  <script defer src="/js/auth.js"></script>
+  <script defer src="/js/productos.js"></script>
+</head>
+<body>
+  <header>
+    <a href="/" id="titulo">Calculadora de Costos</a>
+    <nav aria-label="Principal">
+      <span id="greeting" class="greeting" hidden></span>
+      <a href="/"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Calcular</a>
+      <a href="/insumos.html"><i class="fa-solid fa-box-open" aria-hidden="true"></i> Insumos</a>
+      <a href="/productos.html" class="active" aria-current="page"><i class="fa-solid fa-store" aria-hidden="true"></i> Catálogo</a>
+      <a id="loginLink" href="/login.html"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Ingresar</a>
+      <a id="registerLink" href="/register.html"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Registrarse</a>
+      <button id="logoutBtn" class="nav-btn" hidden><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Salir</button>
+    </nav>
+  </header>
+
+  <main class="main--wide">
+    <div class="page-hero">
+      <h1><i class="fa-solid fa-store" aria-hidden="true"></i> Tu catálogo</h1>
+      <p>Cada producto que calculás queda acá, listo para exportar a Tienda Nube, Instagram o Google.</p>
+    </div>
+
+    <div class="stats-bar" id="statsBar" hidden>
+      <div class="stat-card"><div class="stat-val" id="statTotal">0</div><div class="stat-label">Productos</div></div>
+      <div class="stat-card"><div class="stat-val" id="statPublicados">0</div><div class="stat-label">Publicados</div></div>
+      <button type="button" class="stat-card stat-card--warn" id="statSinFotoCard">
+        <div class="stat-val" id="statSinFoto">0</div><div class="stat-label">Sin foto</div>
+      </button>
+      <div class="stat-card"><div class="stat-val" id="statMargen">-</div><div class="stat-label">Margen promedio</div></div>
+    </div>
+
+    <section class="panel">
+      <div class="toolbar" id="toolbar" hidden>
+        <div class="search-wrapper">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="filtroTexto" placeholder="Buscar por nombre, SKU o etiqueta…" aria-label="Buscar productos">
+        </div>
+        <select id="filtroCategoria" aria-label="Filtrar por categoría">
+          <option value="">Todas las categorías</option>
+        </select>
+        <select id="filtroEstado" aria-label="Filtrar por estado">
+          <option value="">Todos</option>
+          <option value="publicados">Publicados</option>
+          <option value="ocultos">Ocultos</option>
+          <option value="sinfoto">Sin foto</option>
+        </select>
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn--secondary" id="exportarBtn">
+            <i class="fa-solid fa-file-export" aria-hidden="true"></i> Exportar
+          </button>
+          <a href="/" class="btn btn--primary">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i> Nuevo producto
+          </a>
+        </div>
+      </div>
+
+      <p class="result-count" id="resultCount" aria-live="polite"></p>
+      <div id="productosLista" class="catalog-grid">
+        <div class="empty-msg"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Cargando…</div>
+      </div>
+    </section>
+  </main>
+
+  <footer><p>&copy; <span data-year>2025</span> Calculadora de Costos — Sigma Design</p></footer>
+
+  <!-- ── Modal: editar producto ─────────────────────────────────────────── -->
+  <div class="modal-overlay" id="editorModal" aria-hidden="true">
+    <div class="modal-box modal-box--xl" role="dialog" aria-modal="true" aria-labelledby="editorTitulo">
+      <button class="modal-close" data-close aria-label="Cerrar">✕</button>
+      <h2 class="modal-titulo" id="editorTitulo">Editar producto</h2>
+
+      <div class="editor-grid">
+        <section aria-labelledby="fotosTitulo">
+          <h3 id="fotosTitulo" class="editor-sub">Fotos</h3>
+          <div class="editor-fotos" id="editorFotos"></div>
+          <label class="dropzone dropzone--sm" id="editorDropzone" for="editorFotosInput">
+            <input type="file" id="editorFotosInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+            <i class="fa-solid fa-camera" aria-hidden="true"></i>
+            <span><strong>Agregar fotos</strong> o arrastralas acá</span>
+          </label>
+          <p class="hint">La primera foto es la portada. Recomendado: cuadradas, fondo claro, 1024px o más.</p>
+
+          <h3 class="editor-sub">Precio</h3>
+          <div class="precio-box" id="editorPrecio"></div>
+          <a class="btn btn--ghost btn--sm" id="editorRecalcular" href="/">
+            <i class="fa-solid fa-calculator" aria-hidden="true"></i> Editar costos e insumos
+          </a>
+        </section>
+
+        <form id="editorForm" novalidate>
+          <div class="form-group">
+            <label for="edName">Nombre</label>
+            <input id="edName" type="text" maxlength="200" required>
+          </div>
+          <div class="form-group">
+            <label for="edDescription">Descripción</label>
+            <textarea id="edDescription" rows="5" maxlength="5000" placeholder="Lo que verá tu cliente: tamaño, materiales, sabores, cuidados…"></textarea>
+          </div>
+          <div class="form-2col">
+            <div class="form-group">
+              <label for="edCategory">Categoría</label>
+              <input id="edCategory" type="text" maxlength="100" list="edCategoryList">
+              <datalist id="edCategoryList"></datalist>
+            </div>
+            <div class="form-group">
+              <label for="edBrand">Marca</label>
+              <input id="edBrand" type="text" maxlength="100">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="edTags">Etiquetas</label>
+            <input id="edTags" type="text" placeholder="chocolate, cumpleaños, sin tacc">
+            <span class="hint">Separadas por coma. Ayudan a que te encuentren en la tienda.</span>
+          </div>
+          <div class="form-2col">
+            <div class="form-group">
+              <label for="edSku">SKU / código</label>
+              <input id="edSku" type="text" maxlength="100">
+            </div>
+            <div class="form-group">
+              <label for="edStock">Stock</label>
+              <input id="edStock" type="number" min="0" step="1" inputmode="numeric" placeholder="Ilimitado">
+            </div>
+          </div>
+          <details class="res-detalle">
+            <summary>Envío: peso y medidas</summary>
+            <div class="form-4col">
+              <div class="form-group"><label for="edWeight">Peso (kg)</label><input id="edWeight" type="number" min="0" step="0.01" inputmode="decimal"></div>
+              <div class="form-group"><label for="edHeight">Alto (cm)</label><input id="edHeight" type="number" min="0" step="0.1" inputmode="decimal"></div>
+              <div class="form-group"><label for="edWidth">Ancho (cm)</label><input id="edWidth" type="number" min="0" step="0.1" inputmode="decimal"></div>
+              <div class="form-group"><label for="edDepth">Prof. (cm)</label><input id="edDepth" type="number" min="0" step="0.1" inputmode="decimal"></div>
+            </div>
+            <span class="hint">Tienda Nube los usa para calcular el costo de envío.</span>
+          </details>
+          <label class="switch">
+            <input type="checkbox" id="edPublished">
+            <span class="switch-track" aria-hidden="true"></span>
+            <span>Mostrar en la tienda</span>
+          </label>
+        </form>
+      </div>
+
+      <div class="modal-actions modal-actions--split">
+        <button type="button" class="btn btn--danger" id="editorEliminar">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i> Eliminar
+        </button>
+        <div>
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" form="editorForm" class="btn btn--primary" id="editorGuardar">
+            <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: exportar ─────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="exportModal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="exportTitulo">
+      <button class="modal-close" data-close aria-label="Cerrar">✕</button>
+      <h2 class="modal-titulo" id="exportTitulo"><i class="fa-solid fa-file-export" aria-hidden="true"></i> Exportar catálogo</h2>
+
+      <fieldset class="export-options">
+        <legend class="sr-only">Formato</legend>
+        <label class="export-option">
+          <input type="radio" name="exportFormat" value="tiendanube" checked>
+          <span>
+            <strong>Tienda Nube</strong> · planilla CSV
+            <small>Importala desde <em>Productos › Importar y exportar</em>. Incluye precio, precio promocional, costo, stock y medidas. Las fotos se cargan aparte en Tienda Nube.</small>
+          </span>
+        </label>
+        <label class="export-option">
+          <input type="radio" name="exportFormat" value="meta">
+          <span>
+            <strong>Instagram / Facebook / Google</strong> · feed CSV
+            <small>Para el Administrador de ventas de Meta o Google Merchant Center. Incluye links a las fotos.</small>
+          </span>
+        </label>
+        <label class="export-option">
+          <input type="radio" name="exportFormat" value="json">
+          <span>
+            <strong>JSON</strong> · para integraciones
+            <small>Catálogo completo con fotos, para conectar con otra plataforma o una web propia.</small>
+          </span>
+        </label>
+      </fieldset>
+
+      <div class="form-group" id="storeUrlGroup" hidden>
+        <label for="storeUrl">URL de tu tienda <span class="optional">(opcional)</span></label>
+        <input id="storeUrl" type="url" placeholder="https://mitienda.com.ar" inputmode="url">
+        <span class="hint">Meta y Google piden un link a cada producto.</span>
+      </div>
+
+      <label class="inline-check">
+        <input type="checkbox" id="exportSoloPublicados" checked>
+        <span>Solo productos visibles en la tienda</span>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="button" class="btn btn--primary" id="exportDescargar">
+          <i class="fa-solid fa-download" aria-hidden="true"></i> Descargar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>

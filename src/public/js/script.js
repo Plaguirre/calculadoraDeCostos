@@ -1,465 +1,455 @@
 /**
- * script.js — Lógica principal de la calculadora de costos
- * Integra los materiales guardados en el backend como insumos para el cálculo.
+ * script.js — Calculadora: selección de insumos, cálculo en vivo y guardado
+ * en el catálogo (con fotos). Requiere common.js, auth.js y /shared/pricing.js.
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-  bindToggles();
-  document.getElementById('calcBtn')?.addEventListener('click', calcularCostos);
-  document.getElementById('copiarTotales')?.addEventListener('click', copiarTotales);
-  initMaterialsUI();
+const DRAFT_KEY = 'calc_draft';
+const MAX_FOTOS = 8;
+
+let _user   = null;
+let _mats   = [];            // insumos disponibles
+let _sel    = new Map();     // Map<id, {mat, qty}>
+let _calc   = null;          // último resultado
+let _fotos  = [];            // File[] a subir
+let _editId = new URLSearchParams(location.search).get('editar');
+let _summaryVisible = false;
+
+const $ = id => document.getElementById(id);
+
+document.addEventListener('DOMContentLoaded', async () => {
+  bindUI();
+  _user = await window.authReady;
+  await cargarInsumos();
+
+  if (_editId && _user) await cargarProductoParaEditar(_editId);
+  else restaurarBorrador();
+
+  if (_user && !_editId) cargarCategorias();
+  document.addEventListener('materials:merged', cargarInsumos);
+  recalcular();
 });
 
-// ─── Constantes ──────────────────────────────────────────────────────────────
-
-const MATERIALS_KEY = 'materials_v1';
-const API_BASE = '/api';
-
-// ─── Toggles de UI ───────────────────────────────────────────────────────────
-
-function bindToggles() {
-  const pairs = [
-    ['anillado',       'tipoAnillado'],
-    ['polipropileno',  'cantidadPolipropileno'],
-    ['stickers',       'cantidadStickers'],
-    ['descuento',      'porcentajeDescuento'],
-  ];
-  pairs.forEach(([checkId, targetId]) => {
-    const chk = document.getElementById(checkId);
-    const tgt = document.getElementById(targetId);
-    if (chk && tgt) {
-      chk.addEventListener('change', () => {
-        tgt.style.display = chk.checked ? 'inline-block' : 'none';
-        if (!chk.checked) tgt.value = tgt.type === 'number' ? '0' : '';
-      });
-    }
-  });
-}
-
-// ─── Token helper ────────────────────────────────────────────────────────────
-
-function getAccessToken() {
-  return localStorage.getItem('accessToken') || null;
-}
-
-// ─── API calls ───────────────────────────────────────────────────────────────
-
-async function apiFetch(path, options = {}) {
-  const token = getAccessToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers || {}),
-  };
-  const res = await fetch(API_BASE + path, { ...options, headers });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const msg = data.message || (Array.isArray(data.errors) ? data.errors.join(', ') : 'Error de red');
-    throw new Error(msg);
-  }
-  return res.json();
-}
-
-async function fetchMaterialsRemote() {
+// ── Datos ─────────────────────────────────────────────────────────────────────
+async function cargarInsumos() {
   try {
-    if (!getAccessToken()) return null;
-    const data = await apiFetch('/materials');
-    return data.materials || [];
-  } catch {
-    return null;
+    _mats = _user ? (await api('/materials')).materials || [] : loadLocal();
+  } catch (err) {
+    _mats = [];
+    toast('No se pudieron cargar los insumos: ' + err.message, true);
   }
+  renderBuscador();
 }
 
-async function addMaterialRemote(payload) {
-  const data = await apiFetch('/materials', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return data.material;
-}
-
-async function updateMaterialRemote(id, payload) {
-  const data = await apiFetch(`/materials/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
-  return data.material;
-}
-
-async function deleteMaterialRemote(id) {
-  await apiFetch(`/materials/${id}`, { method: 'DELETE' });
-  return true;
-}
-
-// ─── localStorage fallback ───────────────────────────────────────────────────
-
-function loadMaterials() {
-  try { return JSON.parse(localStorage.getItem(MATERIALS_KEY) || '[]'); }
-  catch { return []; }
-}
-function saveMaterials(list) {
-  localStorage.setItem(MATERIALS_KEY, JSON.stringify(list));
-}
-function clearMaterialsUI() {
-  const tbody = document.querySelector('#materialsTable tbody');
-  if (tbody) tbody.innerHTML = '';
-}
-window.clearMaterialsUI = clearMaterialsUI;
-
-// ─── Merge al autenticarse ───────────────────────────────────────────────────
-
-async function mergeLocalMaterials() {
+async function cargarCategorias() {
   try {
-    const local = loadMaterials();
-    if (!Array.isArray(local) || local.length === 0) return;
-    await apiFetch('/materials/merge', {
-      method: 'POST',
-      body: JSON.stringify({ materials: local }),
+    const { products } = await api('/products');
+    const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+    $('categoriasList').innerHTML = cats.map(c => `<option value="${escHtml(c)}">`).join('');
+  } catch { /* opcional */ }
+}
+
+async function cargarProductoParaEditar(id) {
+  try {
+    const { product: p } = await api(`/products/${id}`);
+    $('nombreProducto').value = p.name;
+    $('otrosGastos').value = p.pctOtros;
+    $('margenGanancia').value = p.pctGanancia;
+    $('redondeo').value = String(p.redondeo || 0);
+    setDescuento(p.pctDescuento > 0, p.pctDescuento || 10);
+    p.insumos.forEach(ins => {
+      const mat = ins.materialId && _mats.find(m => m._id === String(ins.materialId));
+      // Si el insumo fue borrado se conserva con su último precio
+      const m = mat || { _id: `snap-${ins.name}`, name: ins.name, unitPrice: ins.unitPrice, snapshot: true };
+      _sel.set(m._id, { mat: m, qty: ins.qty });
     });
-    saveMaterials([]);
-  } catch (e) {
-    console.warn('Merge error:', e.message);
+    $('editBannerName').textContent = p.name;
+    $('editBanner').hidden = false;
+    document.title = `Editar ${p.name} — Calculadora de Costos`;
+    renderSeleccion();
+  } catch (err) {
+    _editId = null;
+    toast('No se pudo abrir el producto: ' + err.message, true);
   }
 }
-window.mergeLocalMaterials = mergeLocalMaterials;
 
-// ─── Render de materiales ────────────────────────────────────────────────────
-
-let _cachedMaterials = []; // caché local para cálculos
-
-async function renderMaterials() {
-  const tbody = document.querySelector('#materialsTable tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" style="color:#999;text-align:center">Cargando…</td></tr>';
-
-  const token = getAccessToken();
-  if (token) {
-    const remote = await fetchMaterialsRemote();
-    _cachedMaterials = Array.isArray(remote) ? remote : [];
-  } else {
-    _cachedMaterials = loadMaterials();
-  }
-
-  buildTable(tbody, _cachedMaterials, !!token);
-  populateMaterialSelector(_cachedMaterials);
-}
-
-function buildTable(tbody, materials, isAuth) {
-  tbody.innerHTML = '';
-  if (materials.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:#999;text-align:center">Sin materiales</td></tr>';
-    return;
-  }
-  materials.forEach((m) => {
-    const id = m._id || m.id;
-    const tr = document.createElement('tr');
-    tr.dataset.id = id;
-    tr.innerHTML = `
-      <td class="mat-name">${escapeHtml(m.name)}</td>
-      <td>$${Number(m.totalCost).toFixed(2)}</td>
-      <td>${m.qty}</td>
-      <td>$${Number(m.unitPrice).toFixed(4)}</td>
-      <td>
-        ${isAuth ? `<button class="smallBtn editBtn" data-id="${id}" title="Editar">✏️</button> ` : ''}
-        <button class="smallBtn delBtn" data-id="${id}" title="Eliminar">🗑</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  // Handlers eliminar
-  tbody.querySelectorAll('.delBtn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      if (!confirm('¿Eliminar este material?')) return;
-      try {
-        if (getAccessToken()) {
-          await deleteMaterialRemote(id);
-        } else {
-          saveMaterials(loadMaterials().filter((x) => (x.id || x._id) !== id));
-        }
-        await renderMaterials();
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
-    });
-  });
-
-  // Handlers editar (solo autenticado)
-  tbody.querySelectorAll('.editBtn').forEach((btn) => {
-    btn.addEventListener('click', () => openEditModal(btn.dataset.id));
-  });
-}
-
-// ─── Modal de edición ────────────────────────────────────────────────────────
-
-function openEditModal(id) {
-  const mat = _cachedMaterials.find((m) => (m._id || m.id) === id);
-  if (!mat) return;
-
-  // Crear modal simple si no existe
-  let modal = document.getElementById('editModal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'editModal';
-    modal.style.cssText = `
-      position:fixed;inset:0;background:rgba(0,0,0,0.5);
-      display:flex;align-items:center;justify-content:center;z-index:9999;
-    `;
-    modal.innerHTML = `
-      <div style="background:#fff;color:#222;padding:24px;border-radius:12px;min-width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
-        <h3 style="margin:0 0 16px">Editar material</h3>
-        <label style="display:block;margin-bottom:8px;font-size:.85rem">Nombre</label>
-        <input id="editName" type="text" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;margin-bottom:12px" />
-        <label style="display:block;margin-bottom:8px;font-size:.85rem">Costo total (ARS)</label>
-        <input id="editCost" type="number" min="0.01" step="0.01" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;margin-bottom:12px" />
-        <label style="display:block;margin-bottom:8px;font-size:.85rem">Cantidad</label>
-        <input id="editQty" type="number" min="1" step="1" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;margin-bottom:16px" />
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="editCancel" class="smallBtn" style="background:#999">Cancelar</button>
-          <button id="editSave" class="botonFinal">Guardar</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  }
-
-  document.getElementById('editName').value = mat.name;
-  document.getElementById('editCost').value = mat.totalCost;
-  document.getElementById('editQty').value = mat.qty;
-  modal.style.display = 'flex';
-
-  document.getElementById('editCancel').onclick = () => { modal.style.display = 'none'; };
-  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
-
-  document.getElementById('editSave').onclick = async () => {
-    const name = document.getElementById('editName').value.trim();
-    const totalCost = parseFloat(document.getElementById('editCost').value);
-    const qty = parseInt(document.getElementById('editQty').value, 10);
-    if (!name || isNaN(totalCost) || totalCost <= 0 || isNaN(qty) || qty <= 0) {
-      alert('Datos inválidos');
-      return;
-    }
-    try {
-      await updateMaterialRemote(id, { name, totalCost, qty });
-      modal.style.display = 'none';
-      await renderMaterials();
-    } catch (err) {
-      alert('Error: ' + err.message);
-    }
+// ── Borrador (para no perder el cálculo al ir a iniciar sesión) ──────────────
+function guardarBorrador() {
+  const draft = {
+    nombre: $('nombreProducto').value,
+    pctOtros: $('otrosGastos').value, pctGanancia: $('margenGanancia').value,
+    redondeo: $('redondeo').value,
+    descuento: $('descuento').checked, pctDesc: $('porcentajeDescuento').value,
+    sel: [..._sel.values()].map(({ mat, qty }) => ({ name: mat.name, unitPrice: mat.unitPrice, qty })),
   };
+  sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
 }
 
-// ─── Selector de materiales para cálculo ─────────────────────────────────────
-
-function populateMaterialSelector(materials) {
-  const container = document.getElementById('matInsumos');
-  if (!container) return;
-  container.innerHTML = '';
-
-  if (materials.length === 0) {
-    container.innerHTML = '<p class="muted" style="font-size:.85rem">Agregá materiales arriba para usarlos en el cálculo.</p>';
-    return;
-  }
-
-  const label = document.createElement('p');
-  label.style.cssText = 'font-size:.85rem;margin-bottom:8px;color:#333;font-weight:600';
-  label.textContent = 'Seleccioná los materiales que usás en este producto y la cantidad por unidad:';
-  container.appendChild(label);
-
-  materials.forEach((m) => {
-    const id = m._id || m.id;
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap';
-    row.innerHTML = `
-      <input type="checkbox" id="chk_${id}" class="matCheck" data-id="${id}" style="width:auto">
-      <label for="chk_${id}" style="flex:1;min-width:120px;color:#333;font-size:.9rem">${escapeHtml(m.name)} <span style="color:#888;font-size:.8rem">($${Number(m.unitPrice).toFixed(4)}/u)</span></label>
-      <input type="number" id="qty_${id}" class="matQtyInput" data-id="${id}" value="1" min="1" step="1"
-        style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;display:none" placeholder="Cant.">
-    `;
-    container.appendChild(row);
-
-    const chk = row.querySelector('.matCheck');
-    const qtyInput = row.querySelector('.matQtyInput');
-    chk.addEventListener('change', () => {
-      qtyInput.style.display = chk.checked ? 'inline-block' : 'none';
-    });
+function restaurarBorrador() {
+  let d;
+  try { d = JSON.parse(sessionStorage.getItem(DRAFT_KEY)); } catch { return; }
+  if (!d) return;
+  sessionStorage.removeItem(DRAFT_KEY);
+  $('nombreProducto').value = d.nombre || '';
+  $('otrosGastos').value = d.pctOtros;
+  $('margenGanancia').value = d.pctGanancia;
+  $('redondeo').value = d.redondeo;
+  setDescuento(d.descuento, d.pctDesc);
+  // Tras iniciar sesión los insumos locales tienen otro id: se buscan por nombre
+  (d.sel || []).forEach(s => {
+    const mat = _mats.find(m => m.name.toLowerCase() === s.name.toLowerCase());
+    if (mat) _sel.set(mat._id || mat.id, { mat, qty: s.qty });
   });
+  renderSeleccion();
+  if (_sel.size) toast('Recuperamos tu cálculo. Ya podés guardarlo.');
 }
 
-// ─── Init form materiales ─────────────────────────────────────────────────────
-
-function initMaterialsUI() {
-  const matForm = document.getElementById('materialForm');
-  const nameInput = document.getElementById('matName');
-  const totalCostInput = document.getElementById('matTotalCost');
-  const qtyInput = document.getElementById('matQty');
-  const unitSpan = document.getElementById('matUnitPrice');
-
-  function updateUnitDisplay() {
-    const cost = parseFloat(totalCostInput?.value) || 0;
-    const qty = parseFloat(qtyInput?.value) || 0;
-    if (unitSpan) unitSpan.textContent = qty > 0 ? (cost / qty).toFixed(4) + ' ARS' : '-';
-  }
-
-  totalCostInput?.addEventListener('input', updateUnitDisplay);
-  qtyInput?.addEventListener('input', updateUnitDisplay);
-
-  matForm?.addEventListener('submit', async (e) => {
+// ── UI ────────────────────────────────────────────────────────────────────────
+function bindUI() {
+  $('buscarInsumo').addEventListener('input', debounce(filtrarInsumos, 80));
+  $('buscarInsumo').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
     e.preventDefault();
-    const name = nameInput?.value.trim();
-    const totalCost = parseFloat(totalCostInput?.value);
-    const qty = parseInt(qtyInput?.value, 10);
+    const first = document.querySelector('.insumo-row:not(.hidden-row):not(.is-selected)');
+    if (first) agregarASeleccion(first.dataset.id);
+  });
 
-    if (!name || isNaN(totalCost) || totalCost <= 0 || isNaN(qty) || qty <= 0) {
-      alert('Completá nombre, costo total y cantidad válida.');
+  ['otrosGastos', 'margenGanancia', 'porcentajeDescuento', 'redondeo', 'nombreProducto']
+    .forEach(id => $(id).addEventListener('input', recalcular));
+  $('descuento').addEventListener('change', e => {
+    setDescuento(e.target.checked);
+    if (e.target.checked) $('porcentajeDescuento').focus();
+  });
+
+  $('guardarBtn').addEventListener('click', guardarProducto);
+  $('copiarBtn').addEventListener('click', copiarResultado);
+  $('limpiarBtn').addEventListener('click', limpiar);
+  $('otroBtn').addEventListener('click', limpiar);
+  $('loginToSaveBtn').addEventListener('click', () => { guardarBorrador(); goToLogin(); });
+
+  // Fotos
+  $('fotosInput').addEventListener('change', e => { agregarFotos(e.target.files); e.target.value = ''; });
+  const dz = $('dropzone');
+  ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('is-over'); }));
+  ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('is-over'); }));
+  dz.addEventListener('drop', e => agregarFotos(e.dataTransfer.files));
+
+  // Barra de precio en móvil: visible mientras el resumen está fuera de pantalla
+  const summary = document.querySelector('.calc-summary');
+  new IntersectionObserver(([e]) => { _summaryVisible = e.isIntersecting; actualizarPriceBar(); }, { threshold: 0.1 })
+    .observe(summary);
+  $('priceBar').addEventListener('click', () => summary.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
+function actualizarPriceBar() {
+  const show = !!_calc && !_summaryVisible && $('guardadoOk').hidden;
+  $('priceBar').hidden = !show;
+  document.body.classList.toggle('has-price-bar', show);
+  if (_calc) $('priceBarVal').textContent = fmt(_calc.pctDescuento > 0 ? _calc.precioFinal : _calc.precioVenta);
+}
+
+function setDescuento(on, pct) {
+  $('descuento').checked = !!on;
+  $('porcentajeDescuento').disabled = !on;
+  if (pct !== undefined) $('porcentajeDescuento').value = pct;
+  recalcular();
+}
+
+function filtrarInsumos() {
+  const q = $('buscarInsumo').value.toLowerCase().trim();
+  let visibles = 0;
+  document.querySelectorAll('.insumo-row').forEach(row => {
+    const hide = q && !row.dataset.name.includes(q);
+    row.classList.toggle('hidden-row', hide);
+    if (!hide) visibles++;
+  });
+  const empty = $('insumosEmpty');
+  if (_mats.length) {
+    empty.hidden = visibles > 0;
+    empty.textContent = 'Ningún insumo coincide con la búsqueda.';
+  }
+}
+
+function renderBuscador() {
+  const scroll = $('insumosScroll');
+  const empty  = $('insumosEmpty');
+  scroll.querySelectorAll('.insumo-row').forEach(el => el.remove());
+
+  if (!_mats.length) {
+    empty.hidden = false;
+    empty.innerHTML = 'Todavía no cargaste insumos. <a href="/insumos.html">Cargá el primero →</a>';
+    return;
+  }
+  empty.hidden = true;
+
+  const frag = document.createDocumentFragment();
+  _mats.forEach(m => {
+    const id  = m._id || m.id;
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'insumo-row';
+    row.setAttribute('role', 'listitem');
+    row.dataset.id   = id;
+    row.dataset.name = m.name.toLowerCase();
+    row.innerHTML = `
+      <span class="insumo-info">
+        <span class="insumo-nombre">${escHtml(m.name)}</span>
+        <span class="insumo-precio">${fmtU(m.unitPrice)} por unidad</span>
+      </span>
+      <span class="insumo-add" aria-hidden="true"><i class="fa-solid fa-plus"></i></span>`;
+    row.addEventListener('click', () => agregarASeleccion(id));
+    frag.appendChild(row);
+  });
+  scroll.appendChild(frag);
+  marcarSeleccionados();
+  filtrarInsumos();
+}
+
+function marcarSeleccionados() {
+  document.querySelectorAll('.insumo-row').forEach(row => {
+    const sel = _sel.has(row.dataset.id);
+    row.classList.toggle('is-selected', sel);
+    row.setAttribute('aria-pressed', sel);
+    row.querySelector('.insumo-add').innerHTML = `<i class="fa-solid ${sel ? 'fa-check' : 'fa-plus'}"></i>`;
+  });
+}
+
+// ── Selección ─────────────────────────────────────────────────────────────────
+function agregarASeleccion(id) {
+  if (_sel.has(id)) {
+    document.querySelector(`.qty-input[data-id="${CSS.escape(id)}"]`)?.focus();
+    return;
+  }
+  const mat = _mats.find(m => (m._id || m.id) === id);
+  if (!mat) return;
+  _sel.set(id, { mat, qty: 1 });
+  renderSeleccion();
+  const input = document.querySelector(`.qty-input[data-id="${CSS.escape(id)}"]`);
+  input?.focus();
+  input?.select();
+}
+
+function renderSeleccion() {
+  const lista = $('seleccionLista');
+  lista.innerHTML = '';
+  $('seleccionWrapper').hidden = _sel.size === 0;
+
+  _sel.forEach(({ mat, qty }, id) => {
+    const item = document.createElement('div');
+    item.className = 'seleccion-item';
+    item.innerHTML = `
+      <span class="seleccion-nombre">${escHtml(mat.name)}
+        ${mat.snapshot ? '<span class="badge badge--warn" title="Este insumo fue eliminado; se usa su último precio">eliminado</span>' : ''}
+      </span>
+      <span class="seleccion-precio">${fmtU(mat.unitPrice)}/u</span>
+      <span class="seleccion-qty-wrapper">
+        <input type="number" class="qty-input" data-id="${escHtml(id)}" value="${qty}" min="0.01" step="any"
+          inputmode="decimal" aria-label="Cantidad de ${escHtml(mat.name)}">
+        <span class="seleccion-qty-label">u</span>
+      </span>
+      <span class="seleccion-sub"></span>
+      <button type="button" class="btn-quitar" aria-label="Quitar ${escHtml(mat.name)}">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>`;
+    item.querySelector('.qty-input').addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      _sel.get(id).qty = v > 0 ? v : 0;
+      e.target.classList.toggle('is-invalid', !(v > 0));
+      recalcular();
+    });
+    item.querySelector('.btn-quitar').addEventListener('click', () => {
+      _sel.delete(id);
+      renderSeleccion();
+    });
+    lista.appendChild(item);
+  });
+
+  marcarSeleccionados();
+  recalcular();
+}
+
+// ── Cálculo en vivo ───────────────────────────────────────────────────────────
+function recalcular() {
+  const hayInsumos = _sel.size > 0;
+  $('resultadoVacio').hidden = hayInsumos;
+  $('resultado').hidden = !hayInsumos;
+  $('guardadoOk').hidden = true;
+  if (!hayInsumos) { _calc = null; actualizarPriceBar(); return; }
+
+  const conDesc = $('descuento').checked;
+  const entradas = [..._sel.entries()];
+  _calc = Pricing.computeTotals({
+    insumos: entradas.map(([id, { mat, qty }]) => ({
+      materialId: mat.snapshot || !_user ? undefined : id,
+      name: mat.name, unitPrice: mat.unitPrice, qty,
+    })),
+    pctOtros:     parseFloat($('otrosGastos').value) || 0,
+    pctGanancia:  parseFloat($('margenGanancia').value) || 0,
+    pctDescuento: conDesc ? parseFloat($('porcentajeDescuento').value) || 0 : 0,
+    redondeo:     Number($('redondeo').value),
+  });
+  const c = _calc;
+
+  // Subtotal por línea
+  document.querySelectorAll('.seleccion-item .seleccion-sub').forEach((el, i) => {
+    el.textContent = fmt(c.insumos[i].subtotal);
+  });
+
+  $('resPrecioVenta').textContent = fmt(c.precioVenta);
+  const promo = $('resPrecioPromo');
+  promo.hidden = !(c.pctDescuento > 0);
+  promo.textContent = `${fmt(c.precioFinal)} con ${c.pctDescuento}% off`;
+
+  $('resCostoInsumos').textContent = fmt(c.costoInsumos);
+  $('rowOtrosGastos').hidden = !(c.pctOtros > 0);
+  $('labelOtrosGastos').textContent = `Otros gastos (${c.pctOtros}%)`;
+  $('resOtrosGastos').textContent = fmt(c.montOtros);
+  $('resCostoTotal').textContent = fmt(c.costoTotal);
+  const margenReal = c.costoTotal > 0 ? (c.ganancia / c.costoTotal) * 100 : 0;
+  $('labelGanancia').textContent = `Ganancia (${margenReal.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%)`;
+  $('resGanancia').textContent = fmt(c.ganancia);
+
+  $('detalleInsumos').innerHTML = c.insumos.map(i => `
+    <div class="detalle-row">
+      <span class="detalle-nombre">${escHtml(i.name)}</span>
+      <span>${i.qty} u × ${fmtU(i.unitPrice)} = <strong>${fmt(i.subtotal)}</strong></span>
+    </div>`).join('');
+
+  // Acciones según sesión / modo
+  $('loginPrompt').hidden = !!_user;
+  $('guardarBtn').hidden = !_user;
+  $('catalogoBlock').hidden = !_user || !!_editId;
+  $('guardarBtn').querySelector('span').textContent = _editId ? 'Guardar cambios' : 'Guardar en catálogo';
+  actualizarPriceBar();
+}
+
+// ── Fotos ─────────────────────────────────────────────────────────────────────
+function agregarFotos(files) {
+  const validas = [...files].filter(f => /^image\/(jpeg|png|webp)$/.test(f.type));
+  if (validas.length < files.length) toast('Algunos archivos no son JPG, PNG o WebP y se omitieron', true);
+  const grandes = validas.filter(f => f.size > 8 * 1024 * 1024);
+  if (grandes.length) toast('Cada foto puede pesar hasta 8 MB', true);
+  _fotos = [..._fotos, ...validas.filter(f => f.size <= 8 * 1024 * 1024)];
+  if (_fotos.length > MAX_FOTOS) {
+    toast(`Máximo ${MAX_FOTOS} fotos por producto`, true);
+    _fotos = _fotos.slice(0, MAX_FOTOS);
+  }
+  renderFotos();
+}
+
+function renderFotos() {
+  const cont = $('fotosPreview');
+  cont.querySelectorAll('img').forEach(img => URL.revokeObjectURL(img.src));
+  cont.innerHTML = '';
+  _fotos.forEach((f, i) => {
+    const fig = document.createElement('figure');
+    fig.className = 'foto-thumb';
+    const url = URL.createObjectURL(f);
+    fig.innerHTML = `
+      <img src="${url}" alt="Foto ${i + 1}">
+      ${i === 0 ? '<span class="foto-cover">Portada</span>' : ''}
+      <button type="button" class="foto-remove" aria-label="Quitar foto ${i + 1}"><i class="fa-solid fa-xmark"></i></button>`;
+    fig.querySelector('.foto-remove').addEventListener('click', () => {
+      _fotos.splice(i, 1);
+      renderFotos();
+    });
+    cont.appendChild(fig);
+  });
+}
+
+// ── Guardar ───────────────────────────────────────────────────────────────────
+async function guardarProducto() {
+  if (!_calc) return;
+  const nombreIn = $('nombreProducto');
+  const nombre = nombreIn.value.trim();
+  if (!nombre) {
+    toast('Poné un nombre al producto para guardarlo', true);
+    nombreIn.classList.add('is-invalid');
+    nombreIn.focus();
+    nombreIn.addEventListener('input', () => nombreIn.classList.remove('is-invalid'), { once: true });
+    return;
+  }
+  if (_calc.insumos.some(i => !(i.qty > 0))) {
+    toast('Revisá las cantidades: todas deben ser mayores a 0', true);
+    return;
+  }
+
+  const btn = $('guardarBtn');
+  const label = btn.querySelector('span');
+  btn.disabled = true;
+  label.textContent = 'Guardando…';
+
+  const payload = {
+    name: nombre,
+    insumos: _calc.insumos.map(({ materialId, name, unitPrice, qty }) => ({ materialId, name, unitPrice, qty })),
+    pctOtros: _calc.pctOtros, pctGanancia: _calc.pctGanancia,
+    pctDescuento: _calc.pctDescuento, redondeo: _calc.redondeo,
+  };
+
+  try {
+    if (_editId) {
+      await api(`/products/${_editId}`, { method: 'PUT', body: payload });
+      toast('Cambios guardados ✓');
+      window.location.href = `/productos.html#p-${_editId}`;
       return;
     }
 
-    const addBtn = document.getElementById('addMatBtn');
-    if (addBtn) addBtn.disabled = true;
+    payload.category = $('categoria').value.trim();
+    payload.description = $('descripcion').value.trim();
+    const { product } = await api('/products', { method: 'POST', body: payload });
 
-    try {
-      if (getAccessToken()) {
-        await addMaterialRemote({ name, totalCost, qty });
-      } else {
-        const materials = loadMaterials();
-        materials.push({
-          id: Date.now().toString(),
-          name,
-          totalCost: parseFloat(totalCost.toFixed(2)),
-          qty,
-          unitPrice: parseFloat((totalCost / qty).toFixed(4)),
-        });
-        saveMaterials(materials);
+    if (_fotos.length) {
+      label.textContent = 'Subiendo fotos…';
+      const fd = new FormData();
+      _fotos.forEach(f => fd.append('images', f));
+      try {
+        await api(`/products/${product._id}/images`, { method: 'POST', body: fd });
+      } catch (err) {
+        toast('El producto se guardó, pero las fotos no: ' + err.message + '. Podés subirlas desde el catálogo.', true);
       }
-      matForm.reset();
-      if (unitSpan) unitSpan.textContent = '-';
-      await renderMaterials();
-    } catch (err) {
-      alert('Error: ' + err.message);
-    } finally {
-      if (addBtn) addBtn.disabled = false;
     }
-  });
 
-  renderMaterials();
-}
-
-// ─── Calculadora principal ───────────────────────────────────────────────────
-
-function calcularCostos() {
-  const nombre = document.getElementById('nombreProducto')?.value.trim() || 'Producto';
-  const tamano = document.getElementById('tamanoProducto')?.value || 'A5';
-  const hojas = Number(document.getElementById('cantidadHojas')?.value) || 0;
-  const tieneAnillado = document.getElementById('anillado')?.checked || false;
-  const tipoAnillado = document.getElementById('tipoAnillado')?.value || 'plastico';
-  const tipoTapa = document.getElementById('tipoTapas')?.value || 'blanda';
-  const tienePoli = document.getElementById('polipropileno')?.checked || false;
-  const cantidadPoli = Number(document.getElementById('cantidadPolipropileno')?.value) || 0;
-  const tieneStickers = document.getElementById('stickers')?.checked || false;
-  const cantidadStk = Number(document.getElementById('cantidadStickers')?.value) || 0;
-  const tieneDescuento = document.getElementById('descuento')?.checked || false;
-  const pctDescuento = Number(document.getElementById('porcentajeDescuento')?.value) || 0;
-
-  // ── Calcular costo de materiales seleccionados del panel ──────────────────
-  let costoInsumos = 0;
-  const insumosUsados = [];
-  document.querySelectorAll('.matCheck:checked').forEach((chk) => {
-    const id = chk.dataset.id;
-    const mat = _cachedMaterials.find((m) => (m._id || m.id) === id);
-    const qtyInput = document.getElementById(`qty_${id}`);
-    const cantUsada = parseInt(qtyInput?.value, 10) || 1;
-    if (mat && cantUsada > 0) {
-      const subtotal = mat.unitPrice * cantUsada;
-      costoInsumos += subtotal;
-      insumosUsados.push({ name: mat.name, qty: cantUsada, unit: mat.unitPrice, subtotal });
-    }
-  });
-
-  // ── Precios fijos del producto ────────────────────────────────────────────
-  const precioPorHoja  = { A5: 5, A6: 4, A7: 3 }[tamano] ?? 5;
-  const precioTapa     = tipoTapa === 'dura' ? 20 : 10;
-  const precioAnillado = tieneAnillado ? (tipoAnillado === 'metal' ? 10 : 5) : 0;
-  const precioPoli     = tienePoli ? cantidadPoli * 2 : 0;
-  const precioStk      = tieneStickers ? cantidadStk * 6 : 0;
-
-  const costoFijo = hojas * precioPorHoja + precioTapa + precioAnillado + precioPoli + precioStk;
-  const costoMateriales = costoFijo + costoInsumos;
-
-  // Otros gastos 15%
-  const otrosGastos = costoMateriales * 0.15;
-  const costoTotal = costoMateriales + otrosGastos;
-
-  // Ganancia 30%
-  const ganancia = costoTotal * 0.30;
-  const precioPublico = costoTotal + ganancia;
-  const precioConDescuento = tieneDescuento && pctDescuento > 0
-    ? precioPublico * (1 - pctDescuento / 100)
-    : precioPublico;
-
-  // ── Renderizar resultado ──────────────────────────────────────────────────
-  const fmt = (n) => `$${Number(n).toFixed(2)}`;
-
-  document.getElementById('producto').textContent = `Producto: ${nombre} (${tamano})`;
-  document.getElementById('costos').textContent =
-    `Costo total (materiales + otros 15%): ${fmt(costoTotal)}`;
-  document.getElementById('ganancias').textContent =
-    `Ganancia estimada (30%): ${fmt(ganancia)}`;
-  document.getElementById('precioPublico').textContent =
-    `Precio al público: ${fmt(precioPublico)}`;
-  document.getElementById('precioConDescuento').textContent =
-    tieneDescuento && pctDescuento > 0
-      ? `Precio con ${pctDescuento}% de descuento: ${fmt(precioConDescuento)}`
-      : '';
-
-  // Detalle de insumos seleccionados
-  let detalleEl = document.getElementById('detalleInsumos');
-  if (!detalleEl) {
-    detalleEl = document.createElement('div');
-    detalleEl.id = 'detalleInsumos';
-    detalleEl.style.cssText = 'margin-top:10px;font-size:.85rem;color:#555';
-    document.getElementById('totalesFinales')?.appendChild(detalleEl);
-  }
-  if (insumosUsados.length > 0) {
-    detalleEl.innerHTML = `
-      <strong>Insumos incluidos:</strong><br>
-      ${insumosUsados.map((i) =>
-        `${escapeHtml(i.name)} × ${i.qty} = $${i.subtotal.toFixed(4)}`
-      ).join('<br>')}
-      <br><em>Subtotal insumos: $${costoInsumos.toFixed(2)}</em>
-    `;
-  } else {
-    detalleEl.innerHTML = '';
+    $('guardadoNombre').textContent = product.name;
+    $('verCatalogoBtn').href = `/productos.html#p-${product._id}`;
+    $('resultado').hidden = true;
+    $('guardadoOk').hidden = false;
+    actualizarPriceBar();
+    $('verCatalogoBtn').focus();
+  } catch (err) {
+    toast('No se pudo guardar: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    label.textContent = _editId ? 'Guardar cambios' : 'Guardar en catálogo';
   }
 }
 
-// ─── Copiar resultado ────────────────────────────────────────────────────────
-
-function copiarTotales() {
-  const ids = ['producto', 'costos', 'ganancias', 'precioPublico', 'precioConDescuento'];
-  const lines = ids
-    .map((id) => document.getElementById(id)?.textContent)
-    .filter(Boolean)
-    .join('\n');
-
-  navigator.clipboard?.writeText(lines).then(() => {
-    const toast = document.getElementById('toast');
-    if (toast) {
-      toast.style.opacity = '1';
-      setTimeout(() => (toast.style.opacity = '0'), 1500);
-    }
-  }).catch(() => alert('No fue posible copiar al portapapeles'));
+// ── Copiar / limpiar ──────────────────────────────────────────────────────────
+function copiarResultado() {
+  if (!_calc) return;
+  const c = _calc;
+  const lines = [
+    `Producto: ${$('nombreProducto').value.trim() || 'Sin nombre'}`,
+    `Costo insumos: ${fmt(c.costoInsumos)}`,
+    c.pctOtros > 0 ? `Otros gastos (${c.pctOtros}%): ${fmt(c.montOtros)}` : null,
+    `Costo total: ${fmt(c.costoTotal)}`,
+    `Ganancia: ${fmt(c.ganancia)}`,
+    `Precio de venta: ${fmt(c.precioVenta)}`,
+    c.pctDescuento > 0 ? `Con ${c.pctDescuento}% off: ${fmt(c.precioFinal)}` : null,
+  ].filter(Boolean).join('\n');
+  navigator.clipboard?.writeText(lines)
+    .then(() => toast('Copiado al portapapeles'))
+    .catch(() => toast('No se pudo copiar', true));
 }
 
-// ─── Utils ───────────────────────────────────────────────────────────────────
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return str
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+function limpiar() {
+  if (_editId) { window.location.href = '/'; return; }
+  _sel.clear();
+  _fotos = [];
+  renderFotos();
+  $('nombreProducto').value = '';
+  $('buscarInsumo').value = '';
+  $('categoria').value = '';
+  $('descripcion').value = '';
+  renderSeleccion();
+  filtrarInsumos();
+  $('nombreProducto').focus();
 }
